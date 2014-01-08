@@ -1,14 +1,20 @@
-from .settings import ROOT_MEDIA_FILTERS, MEDIA_BUNDLES, BASE_ROOT_MEDIA_FILTERS
-from mediagenerator.settings import MEDIA_DEV_MODE
-from mediagenerator.utils import load_backend, media_urls
 import os
 
+from django.conf import settings
+from django.contrib.staticfiles.finders import find
+
+from .settings import ROOT_MEDIA_FILTERS, MEDIA_BUNDLES, BASE_ROOT_MEDIA_FILTERS
+from mediagenerator.settings import MEDIA_DEV_MODE
+from mediagenerator.utils import load_backend, media_urls, get_bundle_files
+
 _cache = {}
+
 
 def _load_root_filter(bundle):
     if bundle not in _cache:
         _cache[bundle] = _load_root_filter_uncached(bundle)
     return _cache[bundle]
+
 
 def _get_root_filters_list(filetype):
     root_filters = ()
@@ -20,6 +26,7 @@ def _get_root_filters_list(filetype):
                 filters = (filters, )
             root_filters += tuple(filters)
     return root_filters
+
 
 def _load_root_filter_uncached(bundle):
     for items in MEDIA_BUNDLES:
@@ -37,10 +44,12 @@ def _load_root_filter_uncached(bundle):
     return backend_class(filter=root_filters[-1], filetype=filetype,
                          bundle=bundle, input=input)
 
+
 def _get_key(bundle, variation_map=None):
     if variation_map:
         bundle += '?' + '&'.join('='.join(item) for item in variation_map)
     return bundle
+
 
 def _render_include_media(bundle, variation):
     variation = variation.copy()
@@ -76,3 +85,26 @@ def _render_include_media(bundle, variation):
         raise ValueError("""Don't know how to include file type "%s".""" % filetype)
 
     return '\n'.join(tag % url for url in urls)
+
+
+def render_media_block(bundle):
+    filetype = os.path.splitext(bundle)[-1].lstrip('.')
+    bundle_files = get_bundle_files(bundle)
+
+    inclusion_tags = {
+        'css': u'<link rel="stylesheet" type="text/css" href="{0}" />',
+        'js': u'<script src="{0}" ></script>',
+    }
+
+    inclusion_tag = inclusion_tags[filetype]
+
+    media_block = []
+
+    for bundle_file in bundle_files:
+        if find(bundle_file):
+            file_url = "".join((settings.STATIC_URL, bundle_file))
+        else:
+            file_url = "".join((settings.MEDIA_URL, bundle_file))
+        media_block.append(inclusion_tag.format(file_url))
+
+    return "\n".join(media_block)

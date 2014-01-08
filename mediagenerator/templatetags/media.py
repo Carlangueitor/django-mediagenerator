@@ -1,8 +1,11 @@
 from django import template
-from mediagenerator.generators.bundles.utils import _render_include_media
-from mediagenerator import utils
+
+from mediagenerator import utils, settings
+from mediagenerator.generators.bundles.utils import (_render_include_media,
+                                                     render_media_block)
 
 register = template.Library()
+
 
 class MediaNode(template.Node):
     def __init__(self, bundle, variation):
@@ -16,6 +19,20 @@ class MediaNode(template.Node):
             variation[key] = template.Variable(value).resolve(context)
 
         return _render_include_media(bundle, variation)
+
+
+class DevelMediaNode(MediaNode):
+    """
+    Render bundle as normal static files withouth rendering.
+    """
+
+    def __init__(self, bundle, variation):
+        self.bundle = bundle.replace("'", '').replace('"', '')
+        self.variation = variation
+
+    def render(self, context):
+        return render_media_block(self.bundle)
+
 
 @register.tag
 def include_media(parser, token):
@@ -34,11 +51,16 @@ def include_media(parser, token):
             'following arguments specify the media variation (if you have '
             'any) and must be of the form key="value"' % contents[0])
 
+    if settings.MEDIA_DEV_MODE and settings.MEDIA_DEV_PLAIN_BUNDLES:
+        return DevelMediaNode(bundle, variation)
+
     return MediaNode(bundle, variation)
+
 
 @register.simple_tag
 def media_url(url):
     return utils.media_url(url)
+
 
 @register.filter
 def media_urls(url):

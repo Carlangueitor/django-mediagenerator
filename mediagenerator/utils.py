@@ -143,3 +143,12 @@ def _load_backend(path):
         return getattr(mod, attr_name)
     except AttributeError:
         raise ImproperlyConfigured('Module "%s" does not define a "%s" backend' % (module_name, attr_name))
+
+
+def get_bundle_files(media_bundle):
+    """
+    Get all files of especified bundle.
+    """
+    for bundle in settings.MEDIA_BUNDLES:
+        if bundle[0] == media_bundle:
+            return bundle[1:]
